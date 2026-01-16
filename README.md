@@ -1,123 +1,122 @@
+# ChronoVault
 
-# ChronoVault – Decentralized Time-Locked Savings dApp
-
-ChronoVault is a decentralized savings application that lets users deposit ETH into an on-chain, time-locked vault. Users can only withdraw after the lock expires, encouraging disciplined savings. This repository contains the **React + Vite** frontend, which connects to a `Vault` smart contract deployed on the Base network.
-
----
-
-
-## Key Features
-- Time-locked savings with enforced lock periods
-- Wallet integration (REOWN AppKit, WalletConnect v2)
-- Real-time balance tracking
-- Multi-network support (Local, Base Sepolia, Base Mainnet)
-
-
-
-
-## Overview
-ChronoVault encourages disciplined savings by enforcing time-locked deposits on-chain. The frontend (in `frontend/`) connects to a deployed `Vault` smart contract. The contract code should be managed in a separate Solidity/Foundry repository (e.g., `chrono-vault-contracts`).
+ChronoVault is a decentralized application (dApp) designed to promote disciplined savings through time-locked ETH deposits. Users interact with a secure, on-chain vault smart contract, ensuring funds are only accessible after a specified lock period. This repository contains the **React + Vite** frontend, which connects to the `Vault` smart contract deployed on the Base network.
 
 ---
 
-
-## Tech Stack
-- React 19, Vite 7, TypeScript
-- TanStack Query, Wagmi, Viem
-- REOWN AppKit, WalletConnect v2
-- Solidity (Foundry, external)
+## Table of Contents
+1. [Features](#features)
+2. [Architecture](#architecture)
+3. [Technology Stack](#technology-stack)
+4. [Project Structure](#project-structure)
+5. [Setup & Installation](#setup--installation)
+6. [Usage](#usage)
+7. [Testing](#testing)
+8. [Deployment](#deployment)
+9. [Security & Disclaimer](#security--disclaimer)
+10. [License](#license)
 
 ---
 
+## Features
+- **Time-Locked Savings:** Enforced lock periods for ETH deposits.
+- **Wallet Integration:** Supports REOWN AppKit and WalletConnect v2.
+- **Real-Time Balance Tracking:** Instantly view vault balances.
+- **Multi-Network Support:** Compatible with Local, Base Sepolia, and Base Mainnet.
+
+---
+
+## Architecture
+ChronoVault consists of two main components:
+- **Frontend:** Located in `chrono-vault-frontend/`, built with React and Vite.
+- **Smart Contract:** The `Vault` contract (Solidity, Foundry) should be managed in a separate repository (e.g., `chrono-vault-contracts`).
+
+The frontend connects to the deployed contract via its address and ABI. Contract deployment and management are handled externally.
+
+---
+
+## Technology Stack
+- React 19
+- Vite 7
+- TypeScript
+- TanStack Query
+- Wagmi & Viem
+- REOWN AppKit
+- WalletConnect v2
+- Solidity (Foundry)
+
+---
 
 ## Project Structure
+- `chrono-vault-frontend/` – React + Vite dApp (UI, wallet integration)
+- `README.md` – Project-level documentation
 
-- `frontend/` – React + Vite dApp (UI and wallet integration)
-- `README.md` – Project-level documentation (this file)
+Refer to `chrono-vault-frontend/README.md` for frontend details. The smart contract code should reside in a separate repository.
 
-See `frontend/README.md` for frontend details. The `Vault` smart contract should live in a separate repo (e.g., `chronovault-contracts`).
+---
 
+## Setup & Installation
+### Prerequisites
+- Node.js v18+
+- npm
+- WalletConnect-compatible wallet
 
-## Quickstart
-
-1. **Clone this repo and your contracts repo.**
-2. Deploy the `Vault` contract (see your contracts repo for instructions).
-3. In this repo:
+### Steps
+1. **Clone this repository and your contracts repository.**
+2. **Deploy the `Vault` contract** (see your contracts repo for instructions).
+3. **Frontend setup:**
    ```bash
-   cd frontend
+   cd chrono-vault-frontend
    npm install
    cp .env.example .env
    # Set VITE_REOWN_PROJECT_ID and VITE_VAULT_ADDRESS in .env
    npm run dev
    ```
-
-For advanced setup, see `frontend/README.md` and your contracts repo.
-
----
-
-
-## Basic Configuration
-
-1. Node.js v18+, npm, and a WalletConnect-compatible wallet are required.
-2. Get a REOWN Project ID from [REOWN Cloud](https://cloud.reown.com/).
-3. Set up your `.env` in `frontend/`:
+4. **Obtain a REOWN Project ID** from [REOWN Cloud](https://cloud.reown.com/).
+5. **Configure environment variables:**
    ```env
    VITE_REOWN_PROJECT_ID=your_reown_project_id_here
    VITE_VAULT_ADDRESS=your_deployed_vault_contract_address_here
    ```
 
-
-Contract addresses are network-specific. Always use the correct address for your target network (local, testnet, or mainnet).
-
----
-
-
-## Smart Contract
-
-The `Vault` contract should be managed and deployed from your contracts repository (e.g., `chronovault-contracts`). The frontend connects to it via its address and ABI. See your contracts repo for details.
+> **Note:** Contract addresses are network-specific. Always use the correct address for your target network (local, testnet, or mainnet).
 
 ---
 
+## Usage
+After completing setup, launch the frontend locally:
+```bash
+npm run dev
+```
+Connect your wallet and interact with the time-locked vault.
+
+---
 
 ## Testing
-
-From the `frontend/` directory:
+From the `chrono-vault-frontend/` directory:
 - Lint: `npm run lint`
 - Type-check: `npm run type-check`
 - Run tests: `npm run test`
 
 ---
 
-
 ## Deployment
-
 1. Build the frontend:
    ```bash
-   cd frontend
+   cd chrono-vault-frontend
    npm run build
    ```
-2. Deploy `frontend/dist` to your preferred static hosting (Vercel, Netlify, etc).
-3. Set the correct environment variables in production.
+2. Deploy the contents of `chrono-vault-frontend/dist` to your preferred static hosting provider (e.g., Vercel, Netlify).
+3. Ensure production environment variables are set correctly.
 
 ---
 
-
-## CI/CD
-
-This repo includes a GitHub Actions workflow for linting, type-checking, and building the app. See `.github/workflows/ci.yml` for details.
-
----
-
-
-## Security and Disclaimer
-
-- Audit and test smart contracts before mainnet deployment.
-- Do not deposit more than you are willing to lose during development.
-- Provided for educational and experimental purposes; no guarantees.
+## Security & Disclaimer
+- Audit and thoroughly test smart contracts before mainnet deployment.
+- Do not deposit more than you are willing to lose during development or testing.
+- This project is provided for educational and experimental purposes only; no guarantees are made regarding security or fitness for any purpose.
 
 ---
-
 
 ## License
-
-MIT
+This project is licensed under the MIT License.
