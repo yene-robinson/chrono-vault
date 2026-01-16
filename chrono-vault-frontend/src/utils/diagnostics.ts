@@ -1,0 +1,295 @@
+/**
+ * Utility functions for gathering diagnostics data
+ */
+
+import { createPublicClient, http, getAddress, isAddress, getContract } from 'viem'
+import { base, baseSepolia } from '@reown/appkit/networks'
+import type {
+  BlockchainConnectionStatus,
+  ContractStatus,
+  EnvironmentFlags,
+  TransactionStatus,
+  DiagnosticsData,
+  ContractFunction,
+  ContractEvent
+} from '../types/diagnostics'
+
+// Interface for ABI function/event items
+interface ABIItem {
+  type: string
+  name?: string
+  inputs?: Array<{
+    type: string
+    internalType?: string
+    name: string
+    indexed?: boolean
+  }>
+  outputs?: Array<{
+    type: string
+    internalType?: string
+    name: string
+  }>
+  stateMutability?: string
+}
+import { VAULT_ABI, VAULT_ADDRESS, CHAIN_ID } from '../config/contracts'
+
+/**
+ * Get current network information
+ */
+export function getCurrentNetwork() {
+  const chains = [base, baseSepolia]
+  return chains.find(chain => chain.id === CHAIN_ID) || null
+}
+
+/**
+ * Create public client for RPC calls
+ */
+export function createDiagnosticsClient(chainId: number = CHAIN_ID) {
+  const network = [base, baseSepolia].find(chain => chain.id === chainId)
+  if (!network) {
+    throw new Error(`Unsupported chain ID: ${chainId}`)
+  }
+  
+  return createPublicClient({
+    chain: network,
+    transport: http()
+  })
+}
+
+/**
+ * Check blockchain connection status
+ */
+export async function checkBlockchainConnection(): Promise<BlockchainConnectionStatus> {
+  try {
+    const client = createDiagnosticsClient()
+    const network = getCurrentNetwork()
+    
+    // Test RPC connectivity
+    const blockNumber = await client.getBlockNumber()
+    const block = await client.getBlock({ blockNumber })
+    
+    return {
+      isConnected: true,
+      chainId: CHAIN_ID,
+      chainName: network?.name || 'Unknown',
+      rpcUrl: network?.rpcUrls.default.http[0] || 'Unknown',
+      blockNumber: Number(blockNumber),
+      networkType: network?.id === base.id ? 'mainnet' : network?.id === baseSepolia.id ? 'testnet' : 'unknown',
+      lastBlockTime: Number(block.timestamp) * 1000, // Convert to milliseconds
+    }
+  } catch (error) {
+    return {
+      isConnected: false,
+      networkType: 'unknown',
+      error: error instanceof Error ? error.message : 'Unknown connection error',
+    }
+  }
+}
+
+/**
+ * Check contract status
+ */
+export async function checkContractStatus(): Promise<ContractStatus> {
+  try {
+    const client = createDiagnosticsClient()
+    
+    // Basic contract address validation
+    if (!VAULT_ADDRESS) {
+      return {
+        address: '',
+        isValid: false,
+        isDeployed: false,
+        abiValid: false,
+        networkMatch: false,
+        error: 'Contract address not configured'
+      }
+    }
+    
+    if (!isAddress(VAULT_ADDRESS)) {
+      return {
+        address: VAULT_ADDRESS,
+        isValid: false,
+        isDeployed: false,
+        abiValid: true, // ABI is valid, just address is invalid
+        networkMatch: true,
+        error: 'Invalid contract address format'
+      }
+    }
+    
+    // Check if contract is deployed and get code
+    const code = await client.getCode({ address: getAddress(VAULT_ADDRESS) })
+    const isDeployed = !!code && code !== '0x'
+    
+    // Create contract instance to test ABI
+    const contract = getContract({
+      address: getAddress(VAULT_ADDRESS),
+      abi: VAULT_ABI,
+      client,
+    })
+    
+    // Test basic read function
+    try {
+      await contract.read.owner()
+    } catch (error) {
+      // Contract might not have owner function or other issues
+    }
+    
+    // Analyze ABI functions and events
+    const functions: ContractFunction[] = VAULT_ABI
+      .filter((item): item is ABIItem => item.type === 'function')
+      .map(fn => ({
+        name: fn.name || 'unknown',
+        signature: `${fn.name}(${fn.inputs?.map(i => i.type).join(',') || ''})`,
+        inputs: fn.inputs?.map(i => i.type) || [],
+        outputs: fn.outputs?.map(o => o.type) || [],
+        stateMutability: fn.stateMutability || 'view'
+      }))
+    
+    const events: ContractEvent[] = VAULT_ABI
+      .filter((item): item is ABIItem => item.type === 'event')
+      .map(event => ({
+        name: event.name || 'unknown',
+        signature: `${event.name}(${event.inputs?.map(i => i.type).join(',') || ''})`,
+        inputs: event.inputs?.map(input => ({
+          indexed: input.indexed || false,
+          internalType: input.internalType,
+          name: input.name,
+          type: input.type
+        })) || []
+      }))
+    
+    return {
+      address: VAULT_ADDRESS,
+      isValid: isAddress(VAULT_ADDRESS),
+      isDeployed,
+      abiValid: VAULT_ABI.length > 0,
+      networkMatch: true, // Assumes ABI is for current network
+      functions,
+      events,
+      error: !isDeployed ? 'Contract not deployed at specified address' : undefined,
+    }
+  } catch (error) {
+    return {
+      address: VAULT_ADDRESS,
+      isValid: false,
+      isDeployed: false,
+      abiValid: true,
+      networkMatch: true,
+      error: error instanceof Error ? error.message : 'Unknown contract error',
+    }
+  }
+}
+
+/**
+ * Get environment flags
+ */
+export function getEnvironmentFlags(): EnvironmentFlags {
+  const isDevelopment = process.env.NODE_ENV === 'development'
+  const isProduction = process.env.NODE_ENV === 'production'
+  
+  return {
+    nodeEnv: (process.env.NODE_ENV as 'development' | 'production' | 'test') || 'development',
+    isDevelopment,
+    isProduction,
+    appVersion: import.meta.env.VITE_APP_VERSION || '0.0.0',
+    buildTimestamp: import.meta.env.VITE_BUILD_TIMESTAMP || new Date().toISOString(),
+    reownProjectId: import.meta.env.VITE_REOWN_PROJECT_ID ? 'configured' : 'missing',
+    vaultAddress: VAULT_ADDRESS || 'not configured',
+    chainId: CHAIN_ID,
+    featureFlags: {
+      diagnosticsEnabled: isDevelopment,
+      debugMode: import.meta.env.DEV,
+      walletConnectEnabled: !!import.meta.env.VITE_REOWN_PROJECT_ID,
+    }
+  }
+}
+
+/**
+ * Get recent transaction statuses
+ * Note: This is a simplified implementation - in a real app you'd fetch from an indexer
+ */
+export function getRecentTransactions(): TransactionStatus[] {
+  try {
+    // Get transaction history from local storage or wallet
+    const txHash = localStorage.getItem('lastTransactionHash')
+    const txData = localStorage.getItem('lastTransactionData')
+    
+    if (!txHash) return []
+    
+    const transaction: TransactionStatus = {
+      hash: txHash,
+      status: txData ? (JSON.parse(txData).status || 'pending') : 'pending',
+      timestamp: JSON.parse(txData || '{}').timestamp || Date.now(),
+      type: JSON.parse(txData || '{}').type || 'unknown',
+    }
+    
+    return [transaction]
+  } catch (error) {
+    console.warn('Failed to get recent transactions:', error)
+    return []
+  }
+}
+
+/**
+ * Main function to gather all diagnostics data
+ */
+export async function gatherDiagnosticsData(): Promise<DiagnosticsData> {
+  const [blockchainConnection, contract, recentTransactions, environment] = await Promise.allSettled([
+    checkBlockchainConnection(),
+    checkContractStatus(),
+    Promise.resolve(getRecentTransactions()),
+    Promise.resolve(getEnvironmentFlags())
+  ])
+  
+  // Handle any rejected promises
+  const connection = blockchainConnection.status === 'fulfilled' ? blockchainConnection.value : {
+    isConnected: false,
+    networkType: 'unknown' as const,
+    error: blockchainConnection.reason?.message || 'Failed to check connection'
+  }
+  
+  const contractStatus = contract.status === 'fulfilled' ? contract.value : {
+    address: VAULT_ADDRESS,
+    isValid: false,
+    isDeployed: false,
+    abiValid: false,
+    networkMatch: false,
+    error: contract.reason?.message || 'Failed to check contract'
+  }
+  
+  const transactions = recentTransactions.status === 'fulfilled' ? recentTransactions.value : []
+  
+  const envFlags = environment.status === 'fulfilled' ? environment.value : getEnvironmentFlags()
+  
+  return {
+    blockchainConnection: connection,
+    contract: contractStatus,
+    lastTransactions: transactions,
+    environment: envFlags,
+    timestamp: Date.now(),
+    version: '1.0.0',
+  }
+}
+
+/**
+ * Save transaction data for diagnostics
+ */
+export function saveTransactionForDiagnostics(hash: string, type: 'deposit' | 'withdrawal', status: 'pending' | 'success' | 'error' = 'pending') {
+  const txData = {
+    hash,
+    type,
+    status,
+    timestamp: Date.now()
+  }
+  
+  localStorage.setItem('lastTransactionHash', hash)
+  localStorage.setItem('lastTransactionData', JSON.stringify(txData))
+}
+
+/**
+ * Clear diagnostics data
+ */
+export function clearDiagnosticsData() {
+  localStorage.removeItem('lastTransactionHash')
+  localStorage.removeItem('lastTransactionData')
+}
